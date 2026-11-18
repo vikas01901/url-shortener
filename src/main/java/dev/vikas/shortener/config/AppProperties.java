@@ -15,7 +15,8 @@ public record AppProperties(
         @DefaultValue CacheSettings cache,
         @DefaultValue RateLimit rateLimit,
         @DefaultValue Analytics analytics,
-        @DefaultValue UrlRules urlRules) {
+        @DefaultValue UrlRules urlRules,
+        @DefaultValue Expiry expiry) {
 
     /** Short-code generation settings. */
     public record Codes(
@@ -41,6 +42,21 @@ public record AppProperties(
             @DefaultValue("true") boolean async,
             @DefaultValue("2") int workerThreads,
             @DefaultValue("10000") int queueCapacity) {
+    }
+
+    /**
+     * Link expiry settings.
+     *
+     * @param defaultTtl     lifetime applied when a request gives no TTL; null means links never expire
+     * @param purgeEnabled   whether the scheduled purge job runs on this instance
+     * @param retention      how long an expired link is kept (answering 410) before it is deleted
+     * @param purgeBatchSize maximum links deleted per statement
+     */
+    public record Expiry(
+            Duration defaultTtl,
+            @DefaultValue("true") boolean purgeEnabled,
+            @DefaultValue("30d") Duration retention,
+            @DefaultValue("1000") int purgeBatchSize) {
     }
 
     /** Rules applied to submitted destination URLs. */

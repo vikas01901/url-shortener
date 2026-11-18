@@ -7,6 +7,7 @@ import dev.vikas.shortener.domain.CodeGenerationException;
 import dev.vikas.shortener.domain.CodeGenerator;
 import dev.vikas.shortener.domain.DailyClicks;
 import dev.vikas.shortener.domain.Link;
+import dev.vikas.shortener.domain.LinkExpiredException;
 import dev.vikas.shortener.domain.LinkNotFoundException;
 import dev.vikas.shortener.domain.LinkStats;
 import dev.vikas.shortener.domain.ReferrerClicks;
@@ -15,6 +16,7 @@ import dev.vikas.shortener.domain.UrlPolicy;
 import dev.vikas.shortener.persistence.ClickRepository;
 import dev.vikas.shortener.persistence.LinkRepository;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -69,23 +71,33 @@ public class LinkService {
      * independent links, so each caller gets separate analytics.
      *
      * @param alias optional caller-chosen code; null or blank means "generate one"
+     * @param ttlSeconds optional lifetime; null means the configured default (never, unless set)
      * @throws dev.vikas.shortener.domain.InvalidUrlException if the URL is not allowed
      * @throws dev.vikas.shortener.domain.InvalidAliasException if the alias is malformed or reserved
      * @throws AliasUnavailableException if the alias is already taken
      * @throws CodeGenerationException if no free code is found within the retry budget
      */
-    public Link create(String rawUrl, String alias) {
+    public Link create(String rawUrl, String alias, Long ttlSeconds) {
         String url = urlPolicy.validate(rawUrl);
         // Millisecond precision so the value returned now equals what the database returns later.
         Instant now = clock.instant().truncatedTo(ChronoUnit.MILLIS);
+        Instant expiresAt = expiryFor(now, ttlSeconds);
         if (alias != null && !alias.isBlank()) {
-            return createWithAlias(url, aliasPolicy.validate(alias), now);
+            return createWithAlias(url, aliasPolicy.validate(alias), now, expiresAt);
         }
-        return createWithGeneratedCode(url, now);
+        return createWithGeneratedCode(url, now, expiresAt);
     }
 
-    private Link createWithAlias(String url, String alias, Instant now) {
-        Link link = new Link(alias, url, now, true, 0L, null);
+    private Instant expiryFor(Instant now, Long ttlSeconds) {
+        if (ttlSeconds != null) {
+            return now.plusSeconds(ttlSeconds);
+        }
+        Duration defaultTtl = props.expiry().defaultTtl();
+        return defaultTtl == null ? null : now.plus(defaultTtl);
+    }
+
+    private Link createWithAlias(String url, String alias, Instant now, Instant expiresAt) {
+        Link link = new Link(alias, url, now, true, expiresAt, 0L, null);
         try {
             links.insert(link);
             return link;
@@ -97,10 +109,10 @@ public class LinkService {
         }
     }
 
-    private Link createWithGeneratedCode(String url, Instant now) {
+    private Link createWithGeneratedCode(String url, Instant now, Instant expiresAt) {
         int maxAttempts = props.codes().maxAttempts();
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            Link link = new Link(codeGenerator.generate(), url, now, false, 0L, null);
+            Link link = new Link(codeGenerator.generate(), url, now, false, expiresAt, 0L, null);
             try {
                 links.insert(link);
                 return link;
@@ -119,19 +131,24 @@ public class LinkService {
      *
      * @param referrerHost host of the referring page, or null
      * @throws LinkNotFoundException if the code is unknown
+     * @throws LinkExpiredException if the link has expired; no click is recorded
      */
     public String resolve(String code, String referrerHost) {
         ResolvedLink resolved = cache.get(code);
         if (resolved == null) {
             resolved = links.findByCode(code)
-                    .map(link -> new ResolvedLink(link.code(), link.originalUrl()))
+                    .map(link -> new ResolvedLink(link.code(), link.originalUrl(), link.expiresAt()))
                     .orElseThrow(() -> new LinkNotFoundException(code));
             cache.put(resolved);
+        }
+        if (resolved.isExpiredAt(clock.instant())) {
+            throw new LinkExpiredException(code);
         }
         clickRecorder.record(code, referrerHost);
         return resolved.targetUrl();
     }
 
+    /** Returns link metadata. Expired links are still readable until they are purged. */
     public Link getLink(String code) {
         return links.findByCode(code).orElseThrow(() -> new LinkNotFoundException(code));
     }

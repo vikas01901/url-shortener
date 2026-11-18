@@ -4,6 +4,7 @@ import dev.vikas.shortener.domain.AliasUnavailableException;
 import dev.vikas.shortener.domain.CodeGenerationException;
 import dev.vikas.shortener.domain.InvalidAliasException;
 import dev.vikas.shortener.domain.InvalidUrlException;
+import dev.vikas.shortener.domain.LinkExpiredException;
 import dev.vikas.shortener.domain.LinkNotFoundException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -49,6 +50,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(LinkNotFoundException.class)
     public ProblemDetail handleNotFound(LinkNotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, "Link not found", ex.getMessage());
+    }
+
+    @ExceptionHandler(LinkExpiredException.class)
+    public ProblemDetail handleExpired(LinkExpiredException ex) {
+        return problem(HttpStatus.GONE, "Link expired", ex.getMessage());
     }
 
     @ExceptionHandler(CodeGenerationException.class)

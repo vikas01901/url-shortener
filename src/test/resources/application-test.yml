@@ -6,6 +6,9 @@ app:
   analytics:
     # Record clicks on the request thread so assertions on counts are deterministic.
     async: false
+  expiry:
+    # Tests call the purger directly.
+    purge-enabled: false
   rate-limit:
     # Effectively unlimited; RateLimitIntegrationTest overrides this.
     capacity: 100000

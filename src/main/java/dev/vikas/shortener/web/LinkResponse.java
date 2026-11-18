@@ -9,7 +9,8 @@ public record LinkResponse(
         String shortUrl,
         String originalUrl,
         boolean customAlias,
-        Instant createdAt) {
+        Instant createdAt,
+        Instant expiresAt) {
 
     static LinkResponse from(Link link, String baseUrl) {
         return new LinkResponse(
@@ -17,7 +18,8 @@ public record LinkResponse(
                 shortUrl(baseUrl, link.code()),
                 link.originalUrl(),
                 link.customAlias(),
-                link.createdAt());
+                link.createdAt(),
+                link.expiresAt());
     }
 
     static String shortUrl(String baseUrl, String code) {

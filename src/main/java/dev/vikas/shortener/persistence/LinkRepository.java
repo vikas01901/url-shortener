@@ -22,13 +22,14 @@ import org.springframework.stereotype.Repository;
 public class LinkRepository {
 
     private static final String SELECT_COLUMNS =
-            "SELECT code, original_url, created_at, custom_alias, click_count, last_accessed_at FROM links";
+            "SELECT code, original_url, created_at, custom_alias, expires_at, click_count, last_accessed_at FROM links";
 
     private static final RowMapper<Link> LINK_MAPPER = (rs, rowNum) -> new Link(
             rs.getString("code"),
             rs.getString("original_url"),
             toInstant(rs.getTimestamp("created_at")),
             rs.getBoolean("custom_alias"),
+            toInstant(rs.getTimestamp("expires_at")),
             rs.getLong("click_count"),
             toInstant(rs.getTimestamp("last_accessed_at")));
 
@@ -48,16 +49,38 @@ public class LinkRepository {
                 .addValue("code", link.code())
                 .addValue("url", link.originalUrl())
                 .addValue("createdAt", Timestamp.from(link.createdAt()), Types.TIMESTAMP)
-                .addValue("customAlias", link.customAlias(), Types.BOOLEAN);
+                .addValue("customAlias", link.customAlias(), Types.BOOLEAN)
+                .addValue("expiresAt", toTimestamp(link.expiresAt()), Types.TIMESTAMP);
         jdbc.update(
-                "INSERT INTO links (code, original_url, created_at, custom_alias, click_count) "
-                        + "VALUES (:code, :url, :createdAt, :customAlias, 0)",
+                "INSERT INTO links (code, original_url, created_at, custom_alias, expires_at, click_count) "
+                        + "VALUES (:code, :url, :createdAt, :customAlias, :expiresAt, 0)",
                 params);
     }
 
     public Optional<Link> findByCode(String code) {
         List<Link> rows = jdbc.query(SELECT_COLUMNS + " WHERE code = :code", Map.of("code", code), LINK_MAPPER);
         return rows.stream().findFirst();
+    }
+
+    /**
+     * Deletes up to {@code batchSize} links whose expiry is before {@code cutoff}.
+     * Click events go with them through the foreign key cascade.
+     *
+     * @return the number of links deleted
+     */
+    public int deleteExpiredBefore(Instant cutoff, int batchSize) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("cutoff", Timestamp.from(cutoff), Types.TIMESTAMP)
+                .addValue("batchSize", batchSize, Types.INTEGER);
+        return jdbc.update(
+                "DELETE FROM links WHERE code IN ("
+                        + "SELECT code FROM links WHERE expires_at IS NOT NULL AND expires_at < :cutoff "
+                        + "LIMIT :batchSize)",
+                params);
+    }
+
+    static Timestamp toTimestamp(Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
     }
 
     static Instant toInstant(Timestamp timestamp) {

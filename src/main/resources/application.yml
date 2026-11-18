@@ -44,3 +44,13 @@ app:
   url-rules:
     max-length: 2048
     block-private-hosts: true
+  expiry:
+    # Lifetime for links created without ttlSeconds. Unset means they never expire.
+    # default-ttl: 90d
+    purge-enabled: true
+    # ISO-8601 durations, read directly by the scheduler.
+    purge-initial-delay: PT1M
+    purge-interval: PT1H
+    # Expired links answer 410 for this long, then are deleted with their click events.
+    retention: 30d
+    purge-batch-size: 1000

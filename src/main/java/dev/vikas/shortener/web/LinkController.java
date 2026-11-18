@@ -29,7 +29,7 @@ public class LinkController {
 
     @PostMapping
     public ResponseEntity<LinkResponse> create(@Valid @RequestBody CreateLinkRequest request) {
-        Link link = linkService.create(request.url(), request.alias());
+        Link link = linkService.create(request.url(), request.alias(), request.ttlSeconds());
         return ResponseEntity
                 .created(URI.create("/api/v1/links/" + link.code()))
                 .body(LinkResponse.from(link, props.baseUrl()));
