@@ -1,6 +1,8 @@
 package dev.vikas.shortener.service;
 
 import dev.vikas.shortener.config.AppProperties;
+import dev.vikas.shortener.domain.AliasPolicy;
+import dev.vikas.shortener.domain.AliasUnavailableException;
 import dev.vikas.shortener.domain.CodeGenerationException;
 import dev.vikas.shortener.domain.CodeGenerator;
 import dev.vikas.shortener.domain.DailyClicks;
@@ -36,6 +38,7 @@ public class LinkService {
     private final LinkCache cache;
     private final CodeGenerator codeGenerator;
     private final UrlPolicy urlPolicy;
+    private final AliasPolicy aliasPolicy;
     private final ClickRecorder clickRecorder;
     private final Clock clock;
     private final AppProperties props;
@@ -46,6 +49,7 @@ public class LinkService {
             LinkCache cache,
             CodeGenerator codeGenerator,
             UrlPolicy urlPolicy,
+            AliasPolicy aliasPolicy,
             ClickRecorder clickRecorder,
             Clock clock,
             AppProperties props) {
@@ -54,6 +58,7 @@ public class LinkService {
         this.cache = cache;
         this.codeGenerator = codeGenerator;
         this.urlPolicy = urlPolicy;
+        this.aliasPolicy = aliasPolicy;
         this.clickRecorder = clickRecorder;
         this.clock = clock;
         this.props = props;
@@ -63,22 +68,46 @@ public class LinkService {
      * Creates a short link for the URL. Submitting the same URL twice yields two
      * independent links, so each caller gets separate analytics.
      *
+     * @param alias optional caller-chosen code; null or blank means "generate one"
      * @throws dev.vikas.shortener.domain.InvalidUrlException if the URL is not allowed
+     * @throws dev.vikas.shortener.domain.InvalidAliasException if the alias is malformed or reserved
+     * @throws AliasUnavailableException if the alias is already taken
      * @throws CodeGenerationException if no free code is found within the retry budget
      */
-    public Link create(String rawUrl) {
+    public Link create(String rawUrl, String alias) {
         String url = urlPolicy.validate(rawUrl);
         // Millisecond precision so the value returned now equals what the database returns later.
         Instant now = clock.instant().truncatedTo(ChronoUnit.MILLIS);
+        if (alias != null && !alias.isBlank()) {
+            return createWithAlias(url, aliasPolicy.validate(alias), now);
+        }
+        return createWithGeneratedCode(url, now);
+    }
+
+    private Link createWithAlias(String url, String alias, Instant now) {
+        Link link = new Link(alias, url, now, true, 0L, null);
+        try {
+            links.insert(link);
+            return link;
+        } catch (DuplicateKeyException e) {
+            // Unlike a generated code there is nothing to retry: the caller asked
+            // for this exact code. The insert itself is the availability check,
+            // so two concurrent requests for one alias cannot both succeed.
+            throw new AliasUnavailableException(alias);
+        }
+    }
+
+    private Link createWithGeneratedCode(String url, Instant now) {
         int maxAttempts = props.codes().maxAttempts();
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            Link link = new Link(codeGenerator.generate(), url, now, 0L, null);
+            Link link = new Link(codeGenerator.generate(), url, now, false, 0L, null);
             try {
                 links.insert(link);
                 return link;
             } catch (DuplicateKeyException e) {
                 // The primary key is the single source of truth for uniqueness, so
                 // this is safe across instances with no check-then-insert race.
+                // A collision can also be with a custom alias: same namespace.
                 log.warn("Short code collision on attempt {} of {}", attempt, maxAttempts);
             }
         }

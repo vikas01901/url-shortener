@@ -2,6 +2,7 @@ package dev.vikas.shortener.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import dev.vikas.shortener.domain.AliasPolicy;
 import dev.vikas.shortener.domain.CodeGenerator;
 import dev.vikas.shortener.domain.RandomCodeGenerator;
 import dev.vikas.shortener.domain.TokenBucketRateLimiter;
@@ -42,6 +43,11 @@ public class BeanConfig {
     public UrlPolicy urlPolicy(AppProperties props) {
         String ownHost = URI.create(props.baseUrl()).getHost();
         return new UrlPolicy(props.urlRules().maxLength(), props.urlRules().blockPrivateHosts(), ownHost);
+    }
+
+    @Bean
+    public AliasPolicy aliasPolicy() {
+        return new AliasPolicy();
     }
 
     @Bean

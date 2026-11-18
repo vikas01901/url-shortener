@@ -167,6 +167,69 @@ class LinkApiIntegrationTest {
     }
 
     @Test
+    void createsALinkWithACustomAlias() throws Exception {
+        String alias = "spring-sale_2026";
+
+        mvc.perform(post("/api/v1/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("url", "https://example.com/sale", "alias", alias))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value(alias))
+                .andExpect(jsonPath("$.shortUrl").value("http://localhost:8080/" + alias))
+                .andExpect(jsonPath("$.customAlias").value(true));
+
+        mvc.perform(get("/" + alias))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://example.com/sale"));
+    }
+
+    @Test
+    void generatedCodesAreNotFlaggedAsCustom() throws Exception {
+        String code = createLink("https://example.com/generated");
+
+        mvc.perform(get("/api/v1/links/" + code))
+                .andExpect(jsonPath("$.customAlias").value(false));
+    }
+
+    @Test
+    void rejectsAnAliasThatIsAlreadyTaken() throws Exception {
+        String body = json(Map.of("url", "https://example.com/first", "alias", "taken-alias"));
+
+        mvc.perform(post("/api/v1/links").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/v1/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("url", "https://example.com/second", "alias", "taken-alias"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Alias unavailable"));
+
+        // The original link is untouched.
+        mvc.perform(get("/taken-alias"))
+                .andExpect(header().string("Location", "https://example.com/first"));
+    }
+
+    @Test
+    void rejectsMalformedAndReservedAliases() throws Exception {
+        for (String alias : new String[] {"abc", "has space", "bad/slash", "dots.not.ok", "actuator", "Swagger-UI"}) {
+            mvc.perform(post("/api/v1/links")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json(Map.of("url", "https://example.com/x", "alias", alias))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Invalid alias"));
+        }
+    }
+
+    @Test
+    void treatsABlankAliasAsNoAlias() throws Exception {
+        mvc.perform(post("/api/v1/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("url", "https://example.com/blank-alias", "alias", ""))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.customAlias").value(false));
+    }
+
+    @Test
     void exposesAHealthEndpoint() throws Exception {
         mvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())

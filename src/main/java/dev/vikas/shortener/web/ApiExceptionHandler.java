@@ -1,6 +1,8 @@
 package dev.vikas.shortener.web;
 
+import dev.vikas.shortener.domain.AliasUnavailableException;
 import dev.vikas.shortener.domain.CodeGenerationException;
+import dev.vikas.shortener.domain.InvalidAliasException;
 import dev.vikas.shortener.domain.InvalidUrlException;
 import dev.vikas.shortener.domain.LinkNotFoundException;
 import java.util.LinkedHashMap;
@@ -32,6 +34,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InvalidUrlException.class)
     public ProblemDetail handleInvalidUrl(InvalidUrlException ex) {
         return problem(HttpStatus.BAD_REQUEST, "Invalid URL", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidAliasException.class)
+    public ProblemDetail handleInvalidAlias(InvalidAliasException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Invalid alias", ex.getMessage());
+    }
+
+    @ExceptionHandler(AliasUnavailableException.class)
+    public ProblemDetail handleAliasUnavailable(AliasUnavailableException ex) {
+        return problem(HttpStatus.CONFLICT, "Alias unavailable", ex.getMessage());
     }
 
     @ExceptionHandler(LinkNotFoundException.class)
