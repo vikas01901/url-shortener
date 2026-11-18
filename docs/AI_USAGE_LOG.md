@@ -122,9 +122,9 @@ Changes that need an explicit human decision rather than an AI default:
 | --- | --- | --- |
 | Domain unit tests: `RandomCodeGeneratorTest`, `UrlPolicyTest`, `TokenBucketRateLimiterTest`, `ReferrersTest`, `AliasPolicyTest`, `ResolvedLinkTest` (74 cases including parameterized inputs) | AI sandbox, JDK 21, test classes compiled unchanged against a minimal stand-in for the JUnit API | Passed |
 | Syntax check of all sources | AI sandbox, `javac` | No errors other than unresolved framework imports, as expected without dependencies |
-| Full build and all tests: `mvn verify` | Engineer's machine | _Pending: to be recorded here with date and result_ |
-| Application started and exercised with curl | Engineer's machine | _Pending_ |
-| Docker Compose with PostgreSQL | Engineer's machine | _Pending or not run_ |
+| Full build and all tests: `mvn verify` | Engineer's machine, 2026-11-18: macOS, Java 18.0.1.1, Maven 3.9.9 | Passed on the first full build: 96 tests (74 unit, 22 integration), 0 failures, 0 errors, 0 skipped |
+| Application started from the packaged jar and exercised with curl | Engineer's machine, 2026-11-18 | Passed: create with alias and TTL returned the link with `customAlias: true` and an expiry one hour out; `GET /spring-sale` returned 302 to the original URL; stats showed `totalClicks: 1` and one click for the day; health returned `UP` |
+| Docker Compose with PostgreSQL | Not run | Unverified. The Dockerfile, Compose file and `postgres` profile have not been executed |
 | CI run on GitHub | GitHub Actions | _Pending: first push_ |
 
 ## Engineer review and sign-off
