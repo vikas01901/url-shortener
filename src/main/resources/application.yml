@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: url-shortener
+  datasource:
+    # Zero-setup default: file-backed H2 so links survive a restart.
+    # Use the "postgres" profile for a production-style database.
+    url: jdbc:h2:file:./data/shortener
+    username: sa
+    password: ""
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  # Public origin used to build short URLs in API responses.
+  base-url: http://localhost:8080
+  codes:
+    length: 7
+    max-attempts: 5
+  cache:
+    max-entries: 100000
+    ttl: 10m
+  rate-limit:
+    enabled: true
+    capacity: 20
+    refill-per-minute: 60
+  analytics:
+    async: true
+    worker-threads: 2
+    queue-capacity: 10000
+  url-rules:
+    max-length: 2048
+    block-private-hosts: true
