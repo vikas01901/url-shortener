@@ -129,4 +129,20 @@ Changes that need an explicit human decision rather than an AI default:
 
 ## Engineer review and sign-off
 
+I built the project on my own machine (macOS, Java 18, Maven 3.9.9) and ran
+the full test suite with `mvn verify`: 96 tests passed with no failures. I
+then started the packaged application and exercised it by hand through
+Swagger UI and the browser: I created a link with a custom alias, followed
+the short URL and confirmed the redirect to the original address, and read
+the link details and the stats. I confirmed that the click count increases
+only for visits through the short link and not for direct visits to the
+original URL. I also checked that the CI run for `main` on GitHub Actions is
+green, and that the two failing runs are Dependabot proposals for major
+version upgrades on separate branches, not failures of this code.
+
+I chose Java and Spring Boot for this project over the assistant's
+recommendation to switch to Python, because it is the stack I work in and can
+review and maintain.
+
+Approved for submission. Vikas Vellampalli, 2026-11-19.
 
