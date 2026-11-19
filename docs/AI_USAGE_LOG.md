@@ -125,9 +125,8 @@ Changes that need an explicit human decision rather than an AI default:
 | Full build and all tests: `mvn verify` | Engineer's machine, 2026-11-18: macOS, Java 18.0.1.1, Maven 3.9.9 | Passed on the first full build: 96 tests (74 unit, 22 integration), 0 failures, 0 errors, 0 skipped |
 | Application started from the packaged jar and exercised with curl | Engineer's machine, 2026-11-18 | Passed: create with alias and TTL returned the link with `customAlias: true` and an expiry one hour out; `GET /spring-sale` returned 302 to the original URL; stats showed `totalClicks: 1` and one click for the day; health returned `UP` |
 | Docker Compose with PostgreSQL | Not run | Unverified. The Dockerfile, Compose file and `postgres` profile have not been executed |
-| CI run on GitHub | GitHub Actions | _Pending: first push_ |
+| CI run on GitHub | GitHub Actions | Passed on the first push to main (CI run #1, 2026-11-18) |
 
 ## Engineer review and sign-off
 
-_To be completed by the engineer after reading the code: what was checked, what
-was changed as a result, and approval for submission._
+
